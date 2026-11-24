@@ -1,0 +1,5 @@
+* text=auto
+*.step binary
+*.stl binary
+*.xlsx binary
+*.png binary

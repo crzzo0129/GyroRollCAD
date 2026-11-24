@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GyroRoll · 成品惯性轮试装版 R1B</title>
+<style>
+:root{color-scheme:dark;--bg:#101821;--panel:#172330;--line:#2e4052;--ink:#ebf3f7;--muted:#a4b6c7;--accent:#f4b46e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 "Segoe UI","Microsoft YaHei",sans-serif}
+header{display:flex;gap:18px;align-items:center;flex-wrap:wrap;padding:18px 26px;background:#111c28;border-bottom:1px solid var(--line)}
+header>div{margin-right:auto}h1,h2,p{margin:0}h1{font-size:22px;line-height:1.3;letter-spacing:.01em}h1 span{font-weight:400;color:var(--muted);margin-left:9px}
+.sub{color:var(--muted);font-size:12px;margin-top:5px}
+main{display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:620px;height:calc(100svh - 87px)}
+.stage{position:relative;overflow:hidden;min-height:420px;background:#101923}
+#view{width:100%;height:100%;position:absolute;inset:0;touch-action:none;cursor:grab}#view:active{cursor:grabbing}canvas{display:block}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;position:absolute;top:16px;left:18px;right:18px;pointer-events:none}
+.toolbar>*{pointer-events:auto}
+a,button{font:inherit;color:inherit;text-decoration:none;white-space:nowrap;padding:6px 11px;border:1px solid var(--line);border-radius:6px;background:#192735;cursor:pointer}
+a:hover,button:hover,button[aria-pressed=true]{border-color:#7194af;background:#283c50}
+.download{color:#ffe0bc;border-color:#80613f}
+.help{position:absolute;bottom:14px;left:18px;right:18px;color:#bdd0dc;font-size:12px;pointer-events:none;display:flex;justify-content:space-between;gap:12px}
+aside{background:var(--panel);border-left:1px solid var(--line);padding:20px;overflow:auto}
+section+section{border-top:1px solid var(--line);margin-top:20px;padding-top:17px}h2{font-size:14px;font-weight:650;margin:0 0 9px}
+.groups{display:grid;gap:5px}.group{display:grid;grid-template-columns:17px 9px 1fr;align-items:center;gap:8px;border-radius:5px;padding:4px 3px;cursor:pointer}.group:hover{background:#223344}
+.dot{height:8px;width:8px;border-radius:2px}input{accent-color:#f2b474;margin:0}
+.spread{display:flex;gap:12px;align-items:center}input[type=range]{width:100%}output{min-width:39px;color:var(--accent);text-align:right}
+dl{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 10px;color:var(--muted);font-size:13px}dd{margin:0;color:var(--ink);text-align:right}
+.selection{color:var(--accent);font-weight:600}.note{color:var(--muted);font-size:12px;margin-top:8px}
+.mass{color:#85edda}.mass-options{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted)}
+.mass-options input[type=number],.mass-options select{width:78px;padding:4px;color:var(--ink);background:#14212c;border:1px solid var(--line);border-radius:4px;font:inherit}
+@media(max-width:780px){header{padding:14px 14px;align-items:flex-start}h1{font-size:16px}main{height:auto;min-height:0;display:block}.stage{height:64svh;min-height:360px}aside{border-left:0;border-top:1px solid var(--line)}.toolbar{top:8px;left:8px;right:8px}.toolbar button{font-size:12px;padding:5px 7px}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>GyroRoll <span>成品惯性轮试装版 R1B</span></h1><p class="sub">SteadyWin DD9015-1 · MAD M6C12 EEE 150KV</p></div>
+  <a class="download" href="GyroRoll_stock_inertia_R1B.step" download>下载总装 STEP</a>
+  <a class="download" href="GyroRoll_R1B_flywheel_D100_bore8_envelope.step" download>下载单片飞轮 STEP</a>
+  <a class="download" href="../bom/GyroRoll_机械采购BOM_R1B.xlsx" download>下载机械 BOM</a>
+  <a class="download" href="../bom/flywheel-sourcing.md">查看飞轮采购</a>
+</header>
+<main>
+  <div class="stage">
+    <div id="view" aria-label="可旋转的三维总装"></div>
+    <div class="toolbar" aria-label="三维视角">
+      <button data-view="iso" aria-pressed="true">等轴</button><button data-view="drive" aria-pressed="false">滚动带侧</button>
+      <button data-view="front" aria-pressed="false">正视</button><button data-view="top" aria-pressed="false">俯视</button>
+      <button id="hatch" aria-pressed="false">拆下舱门</button><button id="inspect" aria-pressed="false">查看传动</button><button id="fit">复位</button>
+    </div>
+    <div class="help"><span>拖拽旋转 · 滚轮缩放 · 右键拖拽平移</span><span>尺寸单位 mm</span></div>
+  </div>
+  <aside>
+    <section><h2>储物与载物</h2><dl>
+      <dt>舱内通行净尺寸（mm）</dt><dd id="storage"></dd>
+      <dt>对应净容积</dt><dd id="storage-volume"></dd>
+      <dt>顶部平台（mm）</dt><dd id="platform"></dd>
+    </dl>
+    <div class="mass-options"><label for="cargo-location">货物位置</label><select id="cargo-location"><option value="inside">舱内</option><option value="deck">平台</option></select></div>
+    <div class="mass-options"><label for="cargo-mass">货物质量（g）</label><input type="number" id="cargo-mass" min="0" max="5000" step="50" value="0"></div>
+    <div class="mass-options"><label for="cargo-offset">前后位置（mm）</label><input type="number" id="cargo-offset" min="-35" max="35" step="5" value="0"></div>
+    <p class="note">正值朝车头。货物以 60 mm 高的方箱示意，质量输入用于估算质心。</p></section>
+    <section><h2>质心估算</h2><dl>
+      <dt>前后偏移（相对轮轴）</dt><dd id="cog-x" class="mass"></dd>
+      <dt>上一版前后偏移</dt><dd id="old-cog-x"></dd>
+      <dt>离地高度</dt><dd id="cog-z"></dd>
+      <dt>整机质量预算</dt><dd id="total-mass"></dd>
+      <dt>树莓派及主动散热</dt><dd>70 g</dd>
+    </dl>
+    <div class="mass-options"><label for="battery-mass">电池质量（g）</label><input type="number" id="battery-mass" min="1" max="999" step="1" value="225"></div>
+    <div class="mass-options"><label><input type="checkbox" id="mass-visible" checked> 显示质心与地面投影</label></div>
+    <p class="note">重量和位置按静态力矩计算。</p></section>
+    <section><h2>显示零件</h2><div class="groups" id="groups"></div></section>
+    <section><h2><label for="explode">爆炸视图</label></h2><div class="spread"><input type="range" id="explode" value="0" min="0" max="100"><output id="percent">0%</output></div></section>
+    <section><h2>总装参数</h2><dl>
+      <dt>外廓（长 × 宽 × 高）</dt><dd id="envelope"></dd>
+      <dt>被动滚动轮</dt><dd>Ø175 × 50 · 外形占位</dd><dt>贯通轮轴</dt><dd>Ø12 × 130</dd>
+      <dt>滚动轮传动</dt><dd>20T → 60T · 459-3M-9</dd><dt>滚动轮两轴中心距</dt><dd id="center"></dd>
+      <dt>双飞轮盘</dt><dd>三辐条 × 2 · Ø100／Ø8</dd><dt>飞轮传动</dt><dd>24T → 24T · 1∶1</dd>
+      <dt>飞轮电机轴中心离地</dt><dd id="fly-motor-height"></dd>
+      <dt>双飞轮轴中心离地</dt><dd id="fly-height"></dd>
+      <dt>飞轮低于电机轴</dt><dd id="fly-drop"></dd>
+      <dt>飞轮同步带节线长度</dt><dd id="fly-belt"></dd>
+    </dl><p class="note">滚动轮为原型占位。飞轮按同系列商品图重建。盘厚 5 mm、含轮毂总宽 12 mm 及其余细部尺寸为试装估算，待样件核对。</p></section>
+    <section><h2>选中零件</h2><p id="picked" class="selection">点击模型检查</p><p class="note" id="details">点击「拆下舱门」查看内部储物空间。</p></section>
+  </aside>
+</main>
+<script>
+/* THREE_BUNDLE */
+</script>
+<script>
+const cad=/* CAD_DATA */;
+const host=document.querySelector('#view');
+const groups=document.querySelector('#groups');
+const selected=document.querySelector('#picked');
+const details=document.querySelector('#details');
+const views={iso:[.91,.40],drive:[Math.PI/2,.03],front:[0,.01],top:[0,1.563],storage:[.48,.21]};
+const fitSpan=(cad.bounds[5]-cad.bounds[2])*.58;
+let az=views.iso[0], el=views.iso[1], span=fitSpan, selection=null, drag=null;
+const center=new THREE.Vector3(...cad.bounds.slice(0,3).map((v,i)=>(v+cad.bounds[i+3])/2));
+const target=center.clone();
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#182634');
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,1,2900);
+camera.up.set(0,0,1);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+host.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xe6f3ff,0x61758c,2.25));
+for(const [pos,intensity] of [[[350,-450,700],2.55],[[-450,180,360],1.35]]){
+  const light=new THREE.DirectionalLight(0xfff9ed,intensity);
+  light.position.set(...pos);scene.add(light);
+}
+const grid=new THREE.GridHelper(780,39,0x597484,0x304553);
+grid.rotation.x=Math.PI/2;grid.position.z=-.45;scene.add(grid);
+const markers=new THREE.Group();
+const markerMaterial=new THREE.MeshBasicMaterial({color:0x81f2d8,depthTest:false,depthWrite:false});
+const marker=new THREE.Mesh(new THREE.SphereGeometry(4.8,20,14),markerMaterial);
+const projection=new THREE.Mesh(new THREE.RingGeometry(5,7,32),markerMaterial);
+const drop=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineDashedMaterial({
+  color:0x81f2d8,dashSize:6,gapSize:4,depthTest:false,depthWrite:false
+}));
+marker.renderOrder=11;projection.renderOrder=11;drop.renderOrder=10;
+markers.add(marker,projection,drop);scene.add(markers);
+const cargoVisual=new THREE.Mesh(new THREE.BoxGeometry(52,54,60),
+  new THREE.MeshStandardMaterial({color:0xffb44e,opacity:.6,transparent:true,depthWrite:false}));
+cargoVisual.visible=false;scene.add(cargoVisual);
+document.querySelector('#mass-visible').onchange=e=>{markers.visible=e.target.checked;render();};
+function offsetLabel(x){return Math.abs(x)<.05?'0.0 mm':(x>0?'前 ':'后 ')+Math.abs(x).toFixed(1)+' mm';}
+function updateMass(){
+  const field=document.querySelector('#battery-mass');
+  const g=field.valueAsNumber;
+  if(!Number.isFinite(g)||g<1||g>999)return;
+  const payload=document.querySelector('#cargo-mass').valueAsNumber;
+  const cargoX=document.querySelector('#cargo-offset').valueAsNumber;
+  const cargoBase=document.querySelector('#cargo-location').value==='inside'?cad.cargo.floor:cad.cargo.deckZ;
+  if(!Number.isFinite(payload)||payload<0||payload>5000||!Number.isFinite(cargoX)||Math.abs(cargoX)>35)return;
+  const cargoCenter=[cargoX,0,cargoBase+30];
+  const extra=g-cad.battery.mass_g,total=cad.mass.mass_g+extra+payload;
+  const position=cad.mass.center_mm.map((x,i)=>(x*cad.mass.mass_g+extra*cad.battery.center_mm[i]+payload*cargoCenter[i])/total);
+  cargoVisual.position.set(...cargoCenter);cargoVisual.visible=payload>0;
+  document.querySelector('#cog-x').textContent=offsetLabel(position[0]);
+  document.querySelector('#cog-z').textContent=(position[2]-cad.groundZ).toFixed(1)+' mm';
+  document.querySelector('#total-mass').textContent=(total/1000).toFixed(2)+' kg';
+  marker.position.set(...position);
+  projection.position.set(position[0],position[1],cad.groundZ+.15);
+  drop.geometry.dispose();
+  drop.geometry=new THREE.BufferGeometry().setFromPoints([projection.position,marker.position]);
+  drop.computeLineDistances();
+  render();
+}
+const groupObjects={};
+const visibility={};
+for(const [key,meta] of Object.entries(cad.groups)){
+  const object=new THREE.Group();scene.add(object);groupObjects[key]=object;
+  const row=document.createElement('label');row.className='group';
+  const check=document.createElement('input');check.type='checkbox';check.checked=true;check.dataset.group=key;
+  visibility[key]=check;
+  const dot=document.createElement('span');dot.className='dot';dot.style.background=meta.color;
+  const title=document.createElement('span');title.textContent=meta.title;
+  row.append(check,dot,title);groups.append(row);
+  check.addEventListener('change',()=>{
+    object.visible=check.checked;
+    if(selection?.parent===object&&!object.visible) pick(null);
+    render();
+  });
+}
+const objects=[];
+for(const part of cad.parts){
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(part.v,3));geo.setIndex(part.i);
+  geo.computeVertexNormals();geo.computeBoundingBox();
+  const material=new THREE.MeshStandardMaterial({color:part.color,roughness:.64,metalness:.13});
+  const obj=new THREE.Mesh(geo,material);
+  obj.userData={name:part.name,group:part.group};groupObjects[part.group].add(obj);objects.push(obj);
+}
+function render(){
+  const aspect=Math.max(.01,host.clientWidth/Math.max(1,host.clientHeight));
+  const half=span*Math.max(1,1.05/aspect);
+  camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;
+  camera.position.copy(target).add(new THREE.Vector3(Math.cos(az)*Math.cos(el),-Math.sin(az)*Math.cos(el),Math.sin(el)).multiplyScalar(960));
+  camera.lookAt(target);camera.updateProjectionMatrix();
+  renderer.render(scene,camera);
+}
+function resize(){renderer.setSize(host.clientWidth,host.clientHeight);render();}
+new ResizeObserver(resize).observe(host);
+function setView(name){
+  [az,el]=views[name];target.copy(center);span=fitSpan;
+  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===name));
+  render();
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+document.querySelector('#fit').onclick=()=>setView('iso');
+const hatch=document.querySelector('#hatch');
+visibility.door.addEventListener('change',()=>{
+  const open=!visibility.door.checked;
+  hatch.textContent=open?'装回舱门':'拆下舱门';hatch.setAttribute('aria-pressed',open);
+});
+hatch.onclick=()=>{
+  visibility.door.checked=!visibility.door.checked;
+  visibility.door.dispatchEvent(new Event('change'));
+  setView(visibility.door.checked?'iso':'storage');
+};
+const inspect=document.querySelector('#inspect');
+inspect.onclick=()=>{
+  const active=inspect.getAttribute('aria-pressed')!=='true';
+  inspect.setAttribute('aria-pressed',active);
+  for(const key of ['frame','electronics','cover']){
+    visibility[key].checked=!active;
+    visibility[key].dispatchEvent(new Event('change'));
+  }
+  setView(active?'drive':'iso');
+};
+const explosion=document.querySelector('#explode');
+explosion.oninput=()=>{
+  const f=Number(explosion.value)/100;
+  for(const [key,object] of Object.entries(groupObjects)) object.position.set(...cad.groups[key].explode).multiplyScalar(f);
+  document.querySelector('#percent').textContent=explosion.value+'%';render();
+};
+const caster=new THREE.Raycaster();
+function pick(object){
+  if(selection)selection.material.emissive.setHex(0);
+  selection=object;
+  if(!object){
+    selected.textContent='点击模型检查';
+    details.textContent='点击「拆下舱门」查看内部储物空间。';
+    render();return;
+  }
+  object.material.emissive.setHex(0x644421);
+  selected.textContent=object.userData.name;
+  const dims=object.geometry.boundingBox.getSize(new THREE.Vector3());
+  details.textContent=cad.groups[object.userData.group].title+' · 包络 '+dims.toArray().map(x=>x.toFixed(1)).join(' × ')+' mm';
+  render();
+}
+host.addEventListener('contextmenu',e=>e.preventDefault());
+host.addEventListener('pointerdown',e=>{
+  if(drag)return;
+  host.setPointerCapture(e.pointerId);
+  drag={id:e.pointerId,x:e.clientX,y:e.clientY,length:0,pan:e.button!==0||e.shiftKey};
+});
+host.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  drag.x=e.clientX;drag.y=e.clientY;drag.length+=Math.hypot(dx,dy);
+  if(drag.pan){
+    const units=(camera.top-camera.bottom)/host.clientHeight;
+    const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
+    const up=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+    target.addScaledVector(right,-dx*units).addScaledVector(up,dy*units);
+  }else{
+    az+=dx*.009;el=THREE.MathUtils.clamp(el+dy*.009,-1.55,1.563);
+    document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed','false'));
+  }
+  render();
+});
+host.addEventListener('pointerup',e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  if(drag.length<3&&!drag.pan){
+    const r=host.getBoundingClientRect();
+    caster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2),camera);
+    pick(caster.intersectObjects(objects.filter(o=>o.parent.visible),false)[0]?.object||null);
+  }
+  drag=null;
+});
+host.addEventListener('pointercancel',()=>drag=null);
+host.addEventListener('wheel',e=>{e.preventDefault();span=THREE.MathUtils.clamp(span*Math.exp(e.deltaY*.0012),65,900);render();},{passive:false});
+document.querySelector('#envelope').textContent=cad.bounds.slice(0,3).map((x,i)=>Math.round(cad.bounds[i+3]-x)).join(' × ');
+document.querySelector('#center').textContent=cad.wheelCenterDistance.toFixed(2);
+document.querySelector('#old-cog-x').textContent=offsetLabel(cad.baselineMass.center_mm[0]);
+document.querySelector('#storage').textContent=cad.cargo.clear.join(' × ');
+document.querySelector('#storage-volume').textContent=(cad.cargo.clear.reduce((a,b)=>a*b,1)/1e6).toFixed(2)+' L';
+document.querySelector('#platform').textContent=cad.cargo.deck.join(' × ');
+document.querySelector('#fly-motor-height').textContent=(cad.flywheel.motorHeight-cad.groundZ).toFixed(1)+' mm';
+document.querySelector('#fly-height').textContent=(cad.flywheel.height-cad.groundZ).toFixed(1)+' mm';
+document.querySelector('#fly-drop').textContent=cad.flywheel.drop.toFixed(1)+' mm';
+document.querySelector('#fly-belt').textContent=cad.flywheel.beltLength+'-3M-'+cad.beltWidth;
+for(const id of ['battery-mass','cargo-mass','cargo-offset','cargo-location']){
+  document.getElementById(id).addEventListener('input',updateMass);
+}
+updateMass();
+resize();document.documentElement.dataset.ready='true';
+</script>
+</body>
+</html>

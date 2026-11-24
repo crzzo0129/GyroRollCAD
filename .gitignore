@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+Thumbs.db
+/src/DD9015_supplier.step
