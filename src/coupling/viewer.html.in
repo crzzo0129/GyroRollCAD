@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GyroRoll R1B · 中央车钩</title>
+<style>
+:root{color-scheme:dark;--bg:#111b24;--panel:#172631;--ink:#e9f1f4;--muted:#a0b6c3;--line:#354956;--accent:#8bd5ed}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif}
+header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
+header h1{font-size:21px;margin:0 auto 0 0}button,a{font:inherit;color:inherit;border:1px solid var(--line);background:#20313e;border-radius:6px;padding:6px 10px;text-decoration:none;cursor:pointer}
+button:hover,a:hover,button[aria-pressed=true]{border-color:var(--accent);background:#274958}
+main{display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:580px;height:calc(100svh - 62px)}
+.stage{position:relative;min-height:400px}.stage canvas{display:block;touch-action:none;cursor:grab}.stage canvas:active{cursor:grabbing}
+.tools{display:flex;gap:6px;position:absolute;top:12px;left:14px;right:14px;flex-wrap:wrap;pointer-events:none}
+.tools button{pointer-events:auto}.help{position:absolute;left:14px;bottom:10px;color:var(--muted);font-size:12px;pointer-events:none}
+aside{background:var(--panel);padding:17px;border-left:1px solid var(--line);overflow:auto}
+section+section{border-top:1px solid var(--line);padding-top:14px;margin-top:15px}
+h2{font-size:15px;margin:0 0 8px}p{margin:0 0 6px;color:var(--muted)}dl{display:grid;grid-template-columns:1fr auto;gap:6px;margin:0}
+dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}input{accent-color:#70c3dd}input[type=range]{display:block;width:100%;margin:9px 0}
+output{color:var(--accent);font-variant-numeric:tabular-nums}label+label{margin-left:9px}.legend{display:grid;gap:7px;margin:0;padding:0;list-style:none}
+.legend span{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;color:#1b1b1b}
+#picked{color:var(--accent);overflow-wrap:anywhere}
+@media(max-width:780px){header h1{width:100%;font-size:18px}main{height:auto;display:block;min-height:0}.stage{height:62svh;min-height:340px}aside{border-left:none;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>GyroRoll R1B · 中央车钩</h1>
+  <a href="GyroRoll_R1B_connection_single.step" download>单机 STEP</a>
+  <a href="GyroRoll_R1B_connection_four.step" download>四机 STEP</a>
+  <a href="README.md">连接件说明</a>
+</header>
+<main>
+  <div class="stage" id="stage" aria-label="R1B 连接件三维预览">
+    <div class="tools">
+      <button id="four" aria-pressed="true">四机连接</button><button id="single" aria-pressed="false">单机收纳</button>
+      <button data-view="iso" aria-pressed="true">等轴</button><button data-view="top" aria-pressed="false">俯视</button>
+      <button data-view="side" aria-pressed="false">侧视</button><button id="reset">复位</button>
+    </div>
+    <div class="help">拖拽旋转 · 滚轮缩放 · 点击零件识别</div>
+  </div>
+  <aside>
+    <section>
+      <h2><label for="fold">前后排相对折转</label> <output id="angle">0°</output></h2>
+      <input type="range" id="fold" min="-36" max="36" step="1" value="0">
+      <label><input type="checkbox" id="show-rack" checked> 货架</label>
+      <label><input type="checkbox" id="show-robot" checked> 机器人本体</label>
+    </section>
+    <section>
+      <h2>装配尺寸</h2>
+      <dl><dt>同排轮距</dt><dd id="track">340 mm</dd>
+      <dt>两排中点间距</dt><dd id="spacing">450 mm</dd>
+      <dt>后转盘滑块前移</dt><dd id="slide">0.0 mm</dd>
+      <dt>横梁中心离地</dt><dd>339.5 mm</dd></dl>
+    </section>
+    <section>
+      <h2>连接路径</h2>
+      <ul class="legend">
+        <li><span style="background:#208bb7"></span>左右半横梁、承力座与插销</li>
+        <li><span style="background:#dc853a"></span>1 号后杆与 3 号前杆接至 H</li>
+        <li><span style="background:#9063af"></span>刚性货架与前后转盘</li>
+        <li><span style="background:#3a9b92"></span>后转盘滑块与纵向导轨</li>
+      </ul>
+    </section>
+    <section><h2>选中零件</h2><p id="picked">点击模型中的零件</p></section>
+  </aside>
+</main>
+<script>/* THREE_BUNDLE */</script>
+<script>
+const cad=/* CAD_DATA */;
+const stage=document.querySelector('#stage');
+const fold=document.querySelector('#fold');
+const showRack=document.querySelector('#show-rack');
+const showRobot=document.querySelector('#show-robot');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#182634');
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,1,3500);
+camera.up.set(0,0,1);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+stage.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xf0f7ff,0x596d7b,2.2));
+for(const [position,power] of [[[650,-750,1100],2.6],[[-420,380,700],1.2]]){
+  const light=new THREE.DirectionalLight(0xfff7ef,power);
+  light.position.set(...position);
+  scene.add(light);
+}
+const grid=new THREE.GridHelper(1400,28,0x53717e,0x324956);
+grid.rotation.x=Math.PI/2;
+grid.position.z=2.3;
+scene.add(grid);
+const meshes=new Map();
+function makeGroup(key,prefix){
+  const group=new THREE.Group();
+  for(const part of cad[key]){
+    if(!meshes.has(part)){
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(part.v,3));
+      geo.setIndex(part.i);
+      geo.computeVertexNormals();
+      meshes.set(part,geo);
+    }
+    const obj=new THREE.Mesh(meshes.get(part),new THREE.MeshStandardMaterial({color:part.color,roughness:.65,metalness:.1}));
+    obj.userData.name=prefix+part.name;
+    group.add(obj);
+  }
+  return group;
+}
+function makeUnit(index){
+  const prefix=index?index+' 号 · ':'';
+  const group=new THREE.Group();
+  const robot=makeGroup('robot',prefix);
+  group.add(robot,makeGroup('mounting',prefix),
+    makeGroup(index===3?'front1':'front0',prefix),makeGroup(index===1?'rear1':'rear0',prefix));
+  const support=index===1?makeGroup('frontSupport',prefix):index===3?makeGroup('rearSupport',prefix):null;
+  if(support) group.add(support);
+  scene.add(group);
+  return {group,robot,support};
+}
+const solo=makeUnit(0);
+const units=[1,2,3,4].map(makeUnit);
+const rack=makeGroup('rack','');
+const slider=makeGroup('slider','');
+scene.add(rack,slider);
+const views={iso:[.87,.46],top:[0,Math.PI/2-.001],side:[Math.PI/2,.005]};
+const target=new THREE.Vector3();
+let mode='four',az=.87,el=.46,span=390,pressed=null,selected=null;
+function render(){
+  const aspect=Math.max(.01,stage.clientWidth/Math.max(1,stage.clientHeight));
+  const half=span*Math.max(1,1.03/aspect);
+  camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;
+  camera.position.copy(target).add(new THREE.Vector3(Math.cos(az)*Math.cos(el),-Math.sin(az)*Math.cos(el),Math.sin(el)).multiplyScalar(1600));
+  camera.lookAt(target);
+  camera.updateProjectionMatrix();
+  renderer.render(scene,camera);
+}
+function aim(view){
+  [az,el]=views[view];
+  target.set(0,mode==='four'?80:12,mode==='four'?217:210);
+  span=mode==='four'?400:244;
+  if(view==='top' && mode==='four')span=470;
+  document.querySelectorAll('[data-view]').forEach(button=>button.setAttribute('aria-pressed',button.dataset.view===view));
+  render();
+}
+function deselect(){
+  if(selected)selected.material.emissive.setHex(0);
+  selected=null;
+  document.querySelector('#picked').textContent='点击模型中的零件';
+}
+function update(){
+  const four=mode==='four';
+  const theta=Number(fold.value)*Math.PI/360;
+  const front=cad.halfSpacing*Math.cos(theta);
+  const y=cad.halfSpacing*Math.sin(theta);
+  units.forEach((unit,index)=>{
+    const frontRow=index<2;
+    const angle=frontRow?theta:-theta;
+    const lateral=index%2?cad.halfTrack:-cad.halfTrack;
+    unit.group.position.set((frontRow?front:-front)-Math.sin(angle)*lateral,y+Math.cos(angle)*lateral,0);
+    unit.group.rotation.z=angle;
+    unit.group.visible=four;
+    unit.robot.visible=showRobot.checked;
+    if(unit.support) unit.support.visible=showRack.checked;
+  });
+  solo.group.visible=!four;
+  solo.robot.visible=showRobot.checked;
+  rack.position.set(front-cad.halfSpacing,y,0);
+  slider.position.set(cad.halfSpacing-front,y,0);
+  rack.visible=slider.visible=four&&showRack.checked;
+  fold.disabled=showRack.disabled=!four;
+  document.querySelector('#angle').value=four?fold.value+'°':'收回';
+  document.querySelector('#track').textContent=four?2*cad.halfTrack+' mm':'—';
+  document.querySelector('#spacing').textContent=four?(2*front).toFixed(1)+' mm':'—';
+  document.querySelector('#slide').textContent=four?(2*(cad.halfSpacing-front)).toFixed(1)+' mm':'—';
+  render();
+}
+for(const name of ['four','single'])document.querySelector('#'+name).onclick=()=>{
+  mode=name;deselect();
+  for(const key of ['four','single'])document.querySelector('#'+key).setAttribute('aria-pressed',name===key);
+  update();aim('iso');
+};
+document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>aim(button.dataset.view));
+document.querySelector('#reset').onclick=()=>{
+  fold.value=0;showRack.checked=true;showRobot.checked=true;deselect();update();aim('iso');
+};
+fold.oninput=update;
+showRack.onchange=showRobot.onchange=()=>{deselect();update();};
+const canvas=renderer.domElement;
+canvas.addEventListener('pointerdown',event=>{
+  if(event.button!==0)return;
+  canvas.setPointerCapture(event.pointerId);
+  pressed={x:event.clientX,y:event.clientY,distance:0};
+});
+canvas.addEventListener('pointermove',event=>{
+  if(!pressed)return;
+  const dx=event.clientX-pressed.x,dy=event.clientY-pressed.y;
+  pressed.x=event.clientX;pressed.y=event.clientY;pressed.distance+=Math.hypot(dx,dy);
+  az+=dx*.008;el=THREE.MathUtils.clamp(el+dy*.008,-1.55,1.56);
+  render();
+});
+canvas.addEventListener('pointerup',event=>{
+  if(!pressed)return;
+  if(pressed.distance<4){
+    const cursor=canvas.getBoundingClientRect();
+    const point=new THREE.Vector2((event.clientX-cursor.left)/cursor.width*2-1,1-(event.clientY-cursor.top)/cursor.height*2);
+    const ray=new THREE.Raycaster();
+    ray.setFromCamera(point,camera);
+    const active=[];
+    scene.traverseVisible(obj=>{if(obj.isMesh&&obj.userData.name)active.push(obj);});
+    deselect();
+    selected=ray.intersectObjects(active,false)[0]?.object;
+    if(selected){
+      selected.material.emissive.setHex(0x344652);
+      document.querySelector('#picked').textContent=selected.userData.name;
+    }
+    render();
+  }
+  pressed=null;
+});
+canvas.addEventListener('pointercancel',()=>{pressed=null;});
+canvas.addEventListener('wheel',event=>{
+  event.preventDefault();span=THREE.MathUtils.clamp(span*Math.exp(event.deltaY*.0012),60,1250);render();
+},{passive:false});
+new ResizeObserver(()=>{renderer.setSize(stage.clientWidth,stage.clientHeight);render();}).observe(stage);
+update();aim('iso');
+document.documentElement.dataset.ready='true';
+</script>
+</body>
+</html>

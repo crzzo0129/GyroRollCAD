@@ -57,6 +57,7 @@ FLY_DISTANCE = (FLY_BELT_LENGTH-PITCH*FLY_PULLEY_TEETH)/2
 FLY_DROP = math.sqrt(FLY_DISTANCE**2-FLY_OFFSET**2)
 FLY_Z = FLY_MOTOR_Z-FLY_DROP
 LOWER_SUPPORT_TOP = 170
+SHELL_SEAM = 302
 CABIN_BOTTOM = 308
 CABIN_FLOOR = 312
 DECK_BOTTOM = 420
@@ -69,7 +70,7 @@ FLY_SHFT_R = 4
 FLY_DRIVE_TRACKS = (33.6, 55.6)
 STOCK_PULLEY_FACE = 15
 STOCK_PULLEY_LENGTH = 23
-CLEAR_STORAGE = (154, 108, 106)
+CLEAR_STORAGE = (170, 128, 106)
 DECK_SIZE = (180, 154)
 WHEEL_BELT_LENGTH = 459
 
@@ -225,9 +226,9 @@ GROUPS = {
     "fly": ("双飞轮及支承", "#d97b41", (25, 0, 26)),
     "flyDrive": ("M6C12 与飞轮传动", "#f0a055", (60, 0, 45)),
     "electronics": ("电池、树莓派与驱动", "#7ad4a2", (44, 0, 28)),
-    "cover": ("下部电子舱盖", "#3a759c", (68, 0, 48)),
-    "body": ("中空储物机身", "#317397", (0, 0, 64)),
-    "door": ("储物舱前门", "#377a9f", (78, 0, 64)),
+    "cover": ("下部电子舱盖", "#36647d", (68, 0, 48)),
+    "body": ("中空储物机身", "#36647d", (0, 0, 64)),
+    "door": ("储物舱前门", "#36647d", (78, 0, 64)),
     "deck": ("顶部载物平台", "#dfe5e3", (0, 0, 115)),
 }
 
@@ -323,6 +324,7 @@ def make_frame():
             slot_y(14, y, 150, 4.5, 35, 6),
             *[slot_y(x, y, DRIVE_Z-20.75, 3, 13, 6) for x in (-45, 45)],
             box(0, y, FLY_Z-57, 13.5, 6, 114),
+            *(box(x, y, SHELL_SEAM, 7, 6, 6) for x in (-60, 53)),
         )
         if side == "左":
             plate = cut(plate, box(32.5, y, 174, 14, 6, 35),
@@ -334,12 +336,20 @@ def make_frame():
     for y, side in [(-49, "左"), (41, "右")]:
         seat = cut(box(-21, y, 68, 42, 8, 44), cylinder((0, y, WHEEL_Z), Y, 14, 8))
         add("frame", side+"轮轴承座", seat)
-    for x in (-60, 53):
-        add("frame", "上部机身座横梁 · M5 底孔", cut(
-            box(x, -49, CABIN_BOTTOM-6, 7, 98, 6),
-            *[cylinder((x+3 if x > 0 else x+4, y, CABIN_BOTTOM-6), Z, 2.1, 6)
-              for y in (-40, 40)],
-        ))
+    crossbars = [box(x, -77, SHELL_SEAM, 7, 154, 6) for x in (-60, 53)]
+    side_rails = [box(x, y, SHELL_SEAM, 73, 6, 6)
+                  for x in (-90, 17) for y in (-77, 71)]
+    end_rails = [box(x, -77, SHELL_SEAM, 6, 154, 6) for x in (-90, 84)]
+    side_tabs = [box(x-6, y, 294, 12, 3.5, 8)
+                 for x in (-56, 56) for y in (-74.5, 71)]
+    end_tabs = [box(x, y-6, 294, 3.5, 12, 8)
+                for x in (-87.5, 84) for y in (-48, 48)]
+    holes = [cylinder((x, y, SHELL_SEAM), Z, 2.1, 6) for x in (-56, 56) for y in (-40, 40)]
+    holes += [cylinder((x, y, SHELL_SEAM), Z, 5.2, 6) for x in (-82, 82) for y in (-70, 70)]
+    holes += [cylinder((x, y, 298), Y, 1.25, 3.5) for x in (-56, 56) for y in (-74.5, 71)]
+    holes += [cylinder((x, y, 298), X, 1.25, 3.5) for x in (-87.5, 84) for y in (-48, 48)]
+    add("frame", "180×154 齐平上沿承力框 · 含设备面板固定耳",
+        cut(fuse(*crossbars, *side_rails, *end_rails, *side_tabs, *end_tabs), *holes), "#476477")
     for x, dx in [(-42, 8), (25, 7)]:
         add("frame", "飞轮中央横梁", box(x, -49, FLY_BEAM_TOP-7, dx, 98, 7))
         for y, rise_y, shaft_y in [(-116, -63, -90), (55, 55, 90)]:
@@ -553,17 +563,12 @@ def make_flywheels(flywheel_parts):
 def make_electronics():
     # The battery and drives sit in the compact equipment level below the cargo floor.
     battery_x = 51.5
-    add("electronics", "前置电池承力底托", box(50, -44, 226, 41, 88, 2), "#547b92")
+    add("electronics", "前置电池承力底托", box(50, -44, 226, 37, 88, 2), "#547b92")
     for y in (-49, 44):
         add("frame", "电池托盘接片", box(51, y, 226, 8, 5, 2))
     for y in (-37, 33):
         add("electronics", "电池承托条", box(50, y, 228, 38, 4, 3), "#718799")
     add("electronics", "Tattu 6S 参考电池 · 225 g", box(battery_x, -37, 231, 35, 74, 45), "#755d9e")
-    for y in (-44, 42):
-        add("cover", "电池舱侧板", box(50, y, 228, 39, 2, 74))
-    add("cover", "电池舱前盖", box(89, -44, 228, 2, 74, 74))
-    add("cover", "电池舱前盖延伸", box(89, 30, 228, 2, 14, 74))
-    add("cover", "电池舱盖板", box(60, -44, 302, 31, 88, 4))
     add("electronics", "降压、USB-CAN 与线束占位 · 45 g", box(54, -32, 279, 30, 64, 21), "#519786")
 
     pi_x = (-39.0, 19.0)
@@ -576,57 +581,74 @@ def make_electronics():
     for x in pi_x:
         for z in pi_z:
             add("electronics", "Pi 支柱", ring((x, 28.8, z), Y, 2.35, 1.35, 20.2), "#708e9b")
-    add("electronics", "后舱底托", box(-92, -38, 243, 41, 76, 2), "#547b92")
+    add("electronics", "后舱底托", box(-87, -38, 243, 36, 76, 2), "#547b92")
     for y in (-49, 38):
         add("frame", "后设备托盘接片", box(-59, y, 243, 8, 11, 2))
     add("electronics", "ODrive S1 与散热占位 · 75 g", box(-76, -33, 247, 17, 66, 50), "#337c6f")
-    add("electronics", "IMU 与安装板 · 5 g", box(-89, -11, 250, 9, 22, 12), "#77b895")
-    for y in (-38, 36):
-        add("cover", "后部设备侧板", box(-90, y, 245, 39, 2, 57))
-    add("cover", "后部设备散热盖", cut(
-        box(-92, -38, 245, 2, 76, 57),
-        *[box(-92, -28, z, 2, 56, 2.5) for z in range(253, 297, 7)]))
-    add("cover", "后部设备盖板", box(-92, -38, 302, 32, 76, 4))
+    add("electronics", "IMU 与安装板 · 5 g", box(-87, -11, 250, 9, 22, 12), "#77b895")
+    make_electronic_shell()
+
+
+def make_electronic_shell():
+    # Side profiles rise between the two end bays to keep the flywheel zone clear.
+    profile = [(-90, 231), (-82, 224), (-51, 224), (-34, 239), (34, 239),
+               (51, 224), (82, 224), (90, 231), (90, SHELL_SEAM), (-90, SHELL_SEAM)]
+    for side, y in (("左", -77), ("右", 74.5)):
+        cover = cut(side_plate(profile, y, 2.5),
+                    box(-17, y, 293.5, 34, 2.5, SHELL_SEAM-293.5),
+                    *(cylinder((x, y, 298), Y, 1.7, 2.5) for x in (-56, 56)))
+        add("cover", side+"电子舱外侧板 · 内凹轮组让位", cover)
+        add("cover", side+"连接口遮盖",
+            box(-16.7, y, 293.8, 33.4, 2.5, CABIN_BOTTOM-293.8), "#4c6878")
+
+    # End caps meet the sides edge to edge. Slots stay on the rear face.
+    front = box(87.5, -74.5, 231, 2.5, 149, SHELL_SEAM-231)
+    rear = cut(box(-90, -74.5, 231, 2.5, 149, SHELL_SEAM-231),
+               box(-90, -22, 231, 2.5, 44, 7),
+               *(box(-90, -29, z, 2.5, 58, 2.6) for z in (248, 255, 262, 269, 276, 283)))
+    for name, x, cover in (("前检修面板", 87.5, front), ("后散热检修面板", -90, rear)):
+        cover = cut(cover, *(cylinder((x, y, 298), X, 1.7, 2.5) for y in (-48, 48)))
+        add("cover", name, cover)
 
 
 def make_cargo_body():
-    corner_centers = [(x, y) for x in (-77, 75) for y in (-58, 58)]
+    corners = [(x, y) for x in (-82, 82) for y in (-70, 70)]
     floor = cut(
-        box(-83, -64, CABIN_BOTTOM, 166, 128, CABIN_FLOOR-CABIN_BOTTOM),
+        box(-90, -77, CABIN_BOTTOM, *DECK_SIZE, CABIN_FLOOR-CABIN_BOTTOM),
         *[cylinder((x, y, CABIN_BOTTOM), Z, 2.75, 4) for x in (-56, 56) for y in (-40, 40)],
-        *[cylinder((x, y, CABIN_BOTTOM), Z, 2.25, 4) for x, y in corner_centers],
+        *[cylinder((x, y, CABIN_BOTTOM), Z, 2.25, 4) for x, y in corners],
     )
-    add("body", "与车架横梁直接连接的储物底板", floor, "#6488a0")
-    wall_height = DECK_BOTTOM-CABIN_FLOOR
-    for y, side in ((-64, "左"), (62, "右")):
-        add("body", side+"储物舱外壁", box(-83, y, CABIN_FLOOR, 166, 2, wall_height))
-    add("body", "储物舱后壁", box(-83, -62, CABIN_FLOOR, 2, 124, wall_height))
-    for x, y in corner_centers:
-        holes = [cylinder((x, y, CABIN_FLOOR), Z, 2.25, wall_height)]
-        column_width = 8
+    add("body", "与外围承力框对齐的储物底板", floor, "#6488a0")
+    height = DECK_BOTTOM-CABIN_FLOOR
+    for y, side in ((-77, "左"), (74.5, "右")):
+        add("body", side+"储物舱外壁", box(-90, y, CABIN_FLOOR, 180, 2.5, height))
+    add("body", "储物舱后壁", box(-90, -74.5, CABIN_FLOOR, 2.5, 149, height))
+    for x, y in corners:
+        holes = [cylinder((x, y, CABIN_FLOOR), Z, 2.25, height)]
         if x > 0:
-            # Move the stud towards the rear edge so a 3.4 mm door pilot clears it.
-            column_width = 10
-            holes += [cylinder((77.6, y, z), X, 1.25, 3.4) for z in (329, 405)]
+            # 0.15 mm to the longitudinal rod bore at the blind end of the door hole.
+            holes.extend(cylinder((84.4, y, z), X, 1.25, 3.1) for z in (329, 405))
         add("body", "平台支承角柱", cut(
-            box(x-4, y-4, CABIN_FLOOR, column_width, 8, wall_height), *holes
+            box(x-4, y-4, CABIN_FLOOR, 9.5 if x > 0 else 8, 8, height), *holes,
         ), "#6589a2")
-    door = cut(box(81, -61.5, CABIN_FLOOR+.5, 2, 123, wall_height-1),
-               *[cylinder((81, y, z), X, 1.8, 2) for y in (-58, 58) for z in (329, 405)])
-    add("door", "储物舱可拆卸前门", door)
-    handle = cut(box(83, -17, 392, 6, 34, 8), box(83, -11, 392, 3.5, 22, 8))
-    add("door", "前门拉手", handle, "#e1a14f")
+    grip_level = 391
+    grip = fuse(box(87.5, -12, grip_level-4, 2.5, 24, 8),
+                *(cylinder((87.5, y, grip_level), X, 4, 2.5) for y in (-12, 12)))
+    door = cut(box(87.5, -74.1, CABIN_FLOOR+.5, 2.5, 148.2, height-1), grip,
+               *[cylinder((87.5, y, z), X, 1.7, 2.5) for y in (-70, 70) for z in (329, 405)])
+    add("door", "齐平可拆储物舱门 · 内嵌指槽", door)
 
-    # Slots sit outside the storage walls, leaving the storage ceiling closed.
-    deck = cut(
-        box(-90, -77, DECK_BOTTOM, *DECK_SIZE, DECK_TOP-DECK_BOTTOM),
-        *[box(x-11, y-2.75, DECK_BOTTOM, 22, 5.5, DECK_TOP-DECK_BOTTOM)
-          for x in (-51, 51) for y in (-70, 70)],
-        *[cylinder((x, y, DECK_BOTTOM), Z, 2.25, DECK_TOP-DECK_BOTTOM) for x, y in corner_centers],
-    )
-    rails = [box(-83, y, DECK_TOP, 166, 3, 4) for y in (-77, 74)]
-    add("deck", "打印轻载平台 · 一体挡边与四个绑带槽", fuse(deck, *rails), "#dfe5e3")
-    for x, y in corner_centers:
+    deck = cut(box(-90, -77, DECK_BOTTOM, *DECK_SIZE, DECK_TOP-DECK_BOTTOM),
+               *(cylinder((x, y, DECK_BOTTOM), Z, 2.25, 4) for x, y in corners))
+    side_rails = [box(-84, y, DECK_TOP, 168, 2.5, 4) for y in (-77, 74.5)]
+    strap_loops = [
+        cut(box(x-14, y-2.5, DECK_TOP, 28, 5, 7),
+            box(x-11, y-2.5, DECK_TOP, 22, 5, 4))
+        for x in (-50, 50) for y in (-68, 68)
+    ]
+    add("deck", "打印轻载平台 · 齐平侧挡与四个顶面绑带桥",
+        fuse(deck, *side_rails, *strap_loops), "#d9e0df")
+    for x, y in corners:
         add("deck", "M4×130 贯通螺杆", cylinder((x, y, 301), Z, 2, 130), "#7c8b99")
         for washer_z, nut_z in ((CABIN_BOTTOM-.8, CABIN_BOTTOM-5.8), (DECK_TOP, DECK_TOP+.8)):
             add("deck", "M4 平垫 DIN 125", ring((x, y, washer_z), Z, 4.5, 2.15, .8), "#8393a1")
@@ -733,7 +755,7 @@ def write_step(path, name, shape, records=()):
 def main():
     vendor_model = HERE / "DD9015_supplier.step"
     if not vendor_model.is_file():
-        raise FileNotFoundError("Get the DD9015 3D Model.STEP from SteadyWin. See README.md.")
+        raise FileNotFoundError("Download the DD9015 3D Model.STEP from SteadyWin. See README.md.")
     OUTPUT.mkdir(exist_ok=True)
     make_wheel()
     make_drive()
