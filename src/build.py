@@ -51,11 +51,6 @@ FLY_PULLEY_LENGTH = 20.6
 FLY_MOTOR_Z = 200
 FLY_BEAM_TOP = 189
 FLY_OFFSET = 90
-FLY_PULLEY_TEETH = 24
-FLY_BELT_LENGTH = 255
-FLY_DISTANCE = (FLY_BELT_LENGTH-PITCH*FLY_PULLEY_TEETH)/2
-FLY_DROP = math.sqrt(FLY_DISTANCE**2-FLY_OFFSET**2)
-FLY_Z = FLY_MOTOR_Z-FLY_DROP
 LOWER_SUPPORT_TOP = 170
 SHELL_SEAM = 302
 CABIN_BOTTOM = 308
@@ -213,6 +208,36 @@ def belt_loop(map_point, distance, r1, r2, width):
         return BRepPrimAPI_MakePrism(face, gp_Vec(*width)).Shape()
 
     return cut(loop(1.35), loop(-.28))
+
+
+def configure_flywheel_transmission(driver_teeth, driven_teeth, belt_length, hub_radius):
+    global FLY_DRIVER_TEETH, FLY_DRIVEN_TEETH, FLY_BELT_LENGTH, FLY_DRIVER_HUB_RADIUS
+    global FLY_DRIVER_RADIUS, FLY_DRIVEN_RADIUS, FLY_DISTANCE, FLY_DROP, FLY_Z
+    FLY_DRIVER_TEETH = driver_teeth
+    FLY_DRIVEN_TEETH = driven_teeth
+    FLY_BELT_LENGTH = belt_length
+    FLY_DRIVER_HUB_RADIUS = hub_radius
+    FLY_DRIVER_RADIUS = pitch_radius(driver_teeth)
+    FLY_DRIVEN_RADIUS = pitch_radius(driven_teeth)
+    if driver_teeth == driven_teeth:
+        FLY_DISTANCE = (belt_length-PITCH*driver_teeth)/2
+    else:
+        FLY_DISTANCE = center_distance(belt_length, FLY_DRIVER_RADIUS, FLY_DRIVEN_RADIUS)
+    FLY_DROP = math.sqrt(FLY_DISTANCE**2-FLY_OFFSET**2)
+    FLY_Z = FLY_MOTOR_Z-FLY_DROP
+
+
+def flywheel_dimensions():
+    return {
+        "height": FLY_Z, "motorHeight": FLY_MOTOR_Z, "drop": FLY_DROP,
+        "horizontalOffset": FLY_OFFSET, "beltLength": FLY_BELT_LENGTH,
+        "centerDistance": FLY_DISTANCE,
+        "driverTeeth": FLY_DRIVER_TEETH, "drivenTeeth": FLY_DRIVEN_TEETH,
+        "ratio": FLY_DRIVEN_TEETH/FLY_DRIVER_TEETH,
+    }
+
+
+configure_flywheel_transmission(24, 24, 255, 10.3)
 
 
 WHEEL_C = center_distance(WHEEL_BELT_LENGTH, pitch_radius(60), pitch_radius(20))
@@ -390,20 +415,19 @@ def adjustable_fly_mount(x, y):
 def fly_belt(pulley_x, side):
     horizontal = FLY_OFFSET/FLY_DISTANCE
     vertical = FLY_DROP/FLY_DISTANCE
-    radius = pitch_radius(FLY_PULLEY_TEETH)
 
     def position(u, v):
         return (pulley_x+(FLY_PULLEY_FACE-BELT_WIDTH)/2,
                 side*(horizontal*u+vertical*v), FLY_MOTOR_Z-vertical*u+horizontal*v)
 
-    return belt_loop(position, FLY_DISTANCE, radius, radius, (BELT_WIDTH, 0, 0))
+    return belt_loop(position, FLY_DISTANCE, FLY_DRIVER_RADIUS, FLY_DRIVEN_RADIUS, (BELT_WIDTH, 0, 0))
 
 
 def fly_pulley(x, y, z):
-    # Catalog 24-3M-09: 12.8 mm face stack, 20.6 mm total including the hub.
+    # The standard 3M-09 face stack is 12.8 mm, with 20.6 mm overall.
     return fuse(
-        pulley((x, y, z), X, FLY_PULLEY_TEETH, FLY_PULLEY_FACE, 5),
-        ring((x+FLY_PULLEY_FACE, y, z), X, 10.3, 5, FLY_PULLEY_LENGTH-FLY_PULLEY_FACE),
+        pulley((x, y, z), X, FLY_DRIVER_TEETH, FLY_PULLEY_FACE, 5),
+        ring((x+FLY_PULLEY_FACE, y, z), X, FLY_DRIVER_HUB_RADIUS, 5, FLY_PULLEY_LENGTH-FLY_PULLEY_FACE),
     )
 
 
@@ -419,9 +443,9 @@ def shaft_with_retaining_rings(x, y, z, length, clips, group, label):
 
 
 def stock_fly_pulley(x, y):
-    # DOLD 863916 dimensions. Tooth profiles and set-screw features are envelopes.
+    # Tooth profiles and set-screw features are envelopes.
     return fuse(
-        pulley((x, y, FLY_Z), X, FLY_PULLEY_TEETH, STOCK_PULLEY_FACE, FLY_SHFT_R),
+        pulley((x, y, FLY_Z), X, FLY_DRIVEN_TEETH, STOCK_PULLEY_FACE, FLY_SHFT_R),
         ring((x+STOCK_PULLEY_FACE, y, FLY_Z), X, 7, FLY_SHFT_R,
              STOCK_PULLEY_LENGTH-STOCK_PULLEY_FACE),
     )
@@ -528,7 +552,10 @@ def make_flywheels(flywheel_parts):
             add("frame", side+"飞轮轴承座 · 横向张紧槽", adjustable_fly_mount(x, y))
             bearing((x, y, FLY_Z), X, side+"飞轮608轴承", "fly", FLY_SHFT_R, 11, 7)
         stock_x = drive_x + (FLY_PULLEY_FACE-STOCK_PULLEY_FACE)/2
-        add("flyDrive", side+"Ø8 24T 从动带轮 · DOLD 863916", stock_fly_pulley(stock_x, y))
+        driven = f"Ø8 {FLY_DRIVEN_TEETH}T 从动带轮"
+        if FLY_DRIVEN_TEETH == 24:
+            driven += " · DOLD 863916"
+        add("flyDrive", side+driven, stock_fly_pulley(stock_x, y))
         add("flyDrive", side+f"{FLY_BELT_LENGTH} mm 斜置同步带", fly_belt(drive_x, sign), "#394654")
 
     z = FLY_MOTOR_Z
@@ -544,7 +571,7 @@ def make_flywheels(flywheel_parts):
     shaft_with_retaining_rings(-52, 0, z, 139, (-42.8, 84),
                                "flyDrive", "飞轮主动中间轴")
     for x in FLY_DRIVE_TRACKS:
-        add("flyDrive", "共用主动轴 24T 主动轮", fly_pulley(x, 0, z))
+        add("flyDrive", f"共用主动轴 {FLY_DRIVER_TEETH}T 主动轮", fly_pulley(x, 0, z))
     for x in (-42, 78):
         add("frame", "主动中间轴承座", shaft_block(x, 0, z))
         bearing((x, 0, z), X, "主动轴6900轴承", "flyDrive", 5, 11, 6)
@@ -825,11 +852,7 @@ def main():
         "mass": {k: v for k, v in mass_data.items() if k != "rows"},
         "baselineMass": {k: v for k, v in baseline.items() if k != "rows"},
         "battery": next(row for row in mass_data["rows"] if row["part"].startswith("Tattu")),
-        "flywheel": {
-            "height": FLY_Z, "motorHeight": FLY_MOTOR_Z, "drop": FLY_DROP,
-            "horizontalOffset": FLY_OFFSET, "beltLength": FLY_BELT_LENGTH,
-            "centerDistance": FLY_DISTANCE,
-        },
+        "flywheel": flywheel_dimensions(),
         "cargo": {
             "clear": CLEAR_STORAGE,
             "deck": DECK_SIZE,

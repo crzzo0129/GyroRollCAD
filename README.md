@@ -2,6 +2,16 @@
 
 GyroRoll 双飞轮独轮机器人的 CAD 与机械采购清单。R1B 采用两只 Ø100 mm、通孔 Ø8 mm 的三辐条惯性轮。MAD M6C12 经同步带驱动双飞轮，SteadyWin DD9015-1 驱动滚动轮。
 
+## R1B 磁吸平肩半球版
+
+最新版采用四向电磁连接，后磁头可绕竖轴摆动。Ø154 mm 正半球直接落在水平肩面上，双飞轮以 20T → 40T、2∶1 同步驱动。
+
+![R1B 磁吸平肩半球版](cad/magnetic/preview.png)
+
+[离线三维预览](cad/magnetic/index.html) · [总装 STEP](cad/magnetic/GyroRoll_R1B_magnetic_dome.step) · [打印件清单](cad/magnetic/print_fit_check/parts.tsv) · [设计说明](cad/magnetic/README.md)
+
+## R1B 齐平机身与中央车钩版
+
 ![R1B 齐平机身](cad/preview.png)
 
 齐平机身的承力框、储物箱和顶平台共用 **180 × 154 mm** 外廓，储物通行净尺寸 **170 × 128 × 106 mm**。电子舱有可拆式检修板。
@@ -33,6 +43,7 @@ GyroRoll 双飞轮独轮机器人的 CAD 与机械采购清单。R1B 采用两�
 python -m pip install -r requirements.txt
 python src/build.py
 python src/coupling/build_connections.py
+python src/magnetic/build_magnetic.py
 ```
 
-单机输出位于 `cad/`，连接件输出位于 `cad/coupling/`。[第三方资料与来源](THIRD_PARTY.md)
+齐平版单机输出位于 `cad/`，中央车钩版输出位于 `cad/coupling/`，磁吸平肩半球版输出位于 `cad/magnetic/`。[第三方资料与来源](THIRD_PARTY.md)
